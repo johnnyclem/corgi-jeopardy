@@ -1,52 +1,52 @@
-//
-//  GameViewController.swift
-//  corgi jeopardy
-//
-//  Created by John Clem on 10/2/25.
-//
-
 import UIKit
 import SpriteKit
-import GameplayKit
 
 class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        presentInitialScene()
+    }
+
+    private func presentInitialScene() {
+        guard let view = self.view as? SKView else { return }
+        let scene = GameBoardScene(size: view.bounds.size)
+        scene.scaleMode = .aspectFill
+        view.presentScene(scene)
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
+
+        guard let view = self.view as? SKView else { return }
+
+        let scene = MainMenuScene(size: view.bounds.size)
+        scene.scaleMode = .aspectFill
+        view.presentScene(scene)
+
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
         
-        // Load 'GameScene.sks' as a GKScene. This provides gameplay related content
-        // including entities and graphs.
-        if let scene = GKScene(fileNamed: "GameScene") {
-            
-            // Get the SKScene from the loaded GKScene
-            if let sceneNode = scene.rootNode as! GameScene? {
-                
-                // Copy gameplay related content over to the scene
-                sceneNode.entities = scene.entities
-                sceneNode.graphs = scene.graphs
-                
-                // Set the scale mode to scale to fit the window
-                sceneNode.scaleMode = .aspectFill
-                
-                // Present the scene
-                if let view = self.view as! SKView? {
-                    view.presentScene(sceneNode)
-                    
-                    view.ignoresSiblingOrder = true
-                    
-                    view.showsFPS = true
-                    view.showsNodeCount = true
-                }
-            }
-        }
+        guard let skView = view as? SKView else { return }
+
+        let boardScene = GameBoardScene(size: skView.bounds.size)
+        boardScene.scaleMode = .resizeFill
+        skView.presentScene(boardScene)
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = true
+        skView.showsNodeCount = true
+        let menuScene = MainMenuScene(size: skView.bounds.size)
+        menuScene.scaleMode = .resizeFill
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
+        skView.presentScene(menuScene)
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        return .portrait
     }
 
     override var prefersStatusBarHidden: Bool {
