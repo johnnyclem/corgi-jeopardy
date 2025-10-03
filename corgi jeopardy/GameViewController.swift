@@ -18,6 +18,13 @@ class GameViewController: UIViewController {
         
         guard let skView = view as? SKView else { return }
 
+        let boardScene = GameBoardScene(size: skView.bounds.size)
+        boardScene.scaleMode = .resizeFill
+        skView.presentScene(boardScene)
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = true
+        skView.showsNodeCount = true
         let menuScene = MainMenuScene(size: skView.bounds.size)
         menuScene.scaleMode = .resizeFill
 
