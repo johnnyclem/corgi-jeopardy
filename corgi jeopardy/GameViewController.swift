@@ -1,10 +1,3 @@
-//
-//  GameViewController.swift
-//  corgi jeopardy
-//
-//  Created by John Clem on 10/2/25.
-//
-
 import UIKit
 import SpriteKit
 
@@ -12,6 +5,16 @@ class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        guard let view = self.view as? SKView else { return }
+
+        let scene = MainMenuScene(size: view.bounds.size)
+        scene.scaleMode = .aspectFill
+        view.presentScene(scene)
+
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
         
         guard let skView = view as? SKView else { return }
 
