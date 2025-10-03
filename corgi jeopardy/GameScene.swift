@@ -1,109 +1,88 @@
-//
-//  GameScene.swift
-//  corgi jeopardy
-//
-//  Created by John Clem on 10/2/25.
-//
-
 import SpriteKit
-import GameplayKit
 
-class GameScene: SKScene {
-    
-    var entities = [GKEntity]()
-    var graphs = [String : GKGraph]()
-    
-    private var lastUpdateTime : TimeInterval = 0
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
-    
-    override func sceneDidLoad() {
+/// Lightweight placeholder gameplay scene that demonstrates avatar placement.
+final class GameScene: SKScene {
+    private let gameState = GameState.shared
+    private var avatarContainers: [SKNode] = []
 
-        self.lastUpdateTime = 0
-        
-        // Get label node from scene and store it for use later
-        self.label = self.childNode(withName: "//helloLabel") as? SKLabelNode
-        if let label = self.label {
-            label.alpha = 0.0
-            label.run(SKAction.fadeIn(withDuration: 2.0))
-        }
-        
-        // Create shape node to use during mouse interaction
-        let w = (self.size.width + self.size.height) * 0.05
-        self.spinnyNode = SKShapeNode.init(rectOf: CGSize.init(width: w, height: w), cornerRadius: w * 0.3)
-        
-        if let spinnyNode = self.spinnyNode {
-            spinnyNode.lineWidth = 2.5
-            
-            spinnyNode.run(SKAction.repeatForever(SKAction.rotate(byAngle: CGFloat(Double.pi), duration: 1)))
-            spinnyNode.run(SKAction.sequence([SKAction.wait(forDuration: 0.5),
-                                              SKAction.fadeOut(withDuration: 0.5),
-                                              SKAction.removeFromParent()]))
+    override func didMove(to view: SKView) {
+        backgroundColor = SKColor(red: 10 / 255, green: 54 / 255, blue: 109 / 255, alpha: 1)
+        removeAllChildren()
+        avatarContainers.removeAll()
+
+        addTitle()
+        displaySelectedAvatars()
+    }
+
+    private func addTitle() {
+        let title = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        title.text = "Let the Games Begin!"
+        title.fontSize = 48
+        title.fontColor = .white
+        title.position = CGPoint(x: size.width / 2, y: size.height * 0.8)
+        addChild(title)
+
+        let subtitle = SKLabelNode(fontNamed: "AvenirNext-Regular")
+        subtitle.text = "Avatars are ready for action."
+        subtitle.fontSize = 24
+        subtitle.fontColor = .white
+        subtitle.position = CGPoint(x: size.width / 2, y: title.position.y - 60)
+        addChild(subtitle)
+    }
+
+    private func displaySelectedAvatars() {
+        let players = gameState.playerOrder
+        guard !players.isEmpty else { return }
+
+        let avatarSize = CGSize(width: 140, height: 140)
+        let spacing = avatarSize.width + 40
+        let totalWidth = CGFloat(max(players.count - 1, 0)) * spacing
+        let startingX = size.width / 2 - totalWidth / 2
+        let baselineY = size.height * 0.45
+
+        for (index, playerId) in players.enumerated() {
+            let container = SKNode()
+            container.position = CGPoint(x: startingX + CGFloat(index) * spacing, y: baselineY)
+            addChild(container)
+            avatarContainers.append(container)
+
+            let avatarName = gameState.avatarName(for: playerId)
+            let avatarNode = makeAvatarSprite(named: avatarName, fallbackIndex: index)
+            avatarNode.size = avatarSize
+            container.addChild(avatarNode)
+
+            let nameLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            nameLabel.text = playerId
+            nameLabel.fontSize = 24
+            nameLabel.fontColor = .white
+            nameLabel.verticalAlignmentMode = .center
+            nameLabel.horizontalAlignmentMode = .center
+            nameLabel.position = CGPoint(x: 0, y: -avatarSize.height / 2 - 26)
+            container.addChild(nameLabel)
         }
     }
-    
-    
-    func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
+
+    private func makeAvatarSprite(named imageName: String, fallbackIndex: Int) -> SKSpriteNode {
+        let texture = SKTexture(imageNamed: imageName)
+        if texture.size() == .zero {
+            let colors: [SKColor] = [
+                SKColor(red: 244 / 255, green: 162 / 255, blue: 97 / 255, alpha: 1),
+                SKColor(red: 233 / 255, green: 196 / 255, blue: 106 / 255, alpha: 1),
+                SKColor(red: 42 / 255, green: 157 / 255, blue: 143 / 255, alpha: 1),
+                SKColor(red: 38 / 255, green: 70 / 255, blue: 83 / 255, alpha: 1),
+                SKColor(red: 231 / 255, green: 111 / 255, blue: 81 / 255, alpha: 1)
+            ]
+            let node = SKSpriteNode(color: colors[fallbackIndex % colors.count], size: CGSize(width: 140, height: 140))
+            let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            label.text = imageName.replacingOccurrences(of: ".png", with: "").capitalized
+            label.fontSize = 20
+            label.fontColor = .white
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            node.addChild(label)
+            return node
         }
-    }
-    
-    func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
-    }
-    
-    func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
-    }
-    
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
-        }
-        
-        for t in touches { self.touchDown(atPoint: t.location(in: self)) }
-    }
-    
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
-    }
-    
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
-    }
-    
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
-    }
-    
-    
-    override func update(_ currentTime: TimeInterval) {
-        // Called before each frame is rendered
-        
-        // Initialize _lastUpdateTime if it has not already been
-        if (self.lastUpdateTime == 0) {
-            self.lastUpdateTime = currentTime
-        }
-        
-        // Calculate time since last update
-        let dt = currentTime - self.lastUpdateTime
-        
-        // Update entities
-        for entity in self.entities {
-            entity.update(deltaTime: dt)
-        }
-        
-        self.lastUpdateTime = currentTime
+
+        return SKSpriteNode(texture: texture)
     }
 }
