@@ -5,6 +5,17 @@ class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        presentInitialScene()
+    }
+
+    private func presentInitialScene() {
+        guard let view = self.view as? SKView else { return }
+        let scene = GameBoardScene(size: view.bounds.size)
+        scene.scaleMode = .aspectFill
+        view.presentScene(scene)
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
 
         guard let view = self.view as? SKView else { return }
 
