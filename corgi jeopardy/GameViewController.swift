@@ -1,10 +1,3 @@
-//
-//  GameViewController.swift
-//  corgi jeopardy
-//
-//  Created by John Clem on 10/2/25.
-//
-
 import UIKit
 import SpriteKit
 
@@ -23,14 +16,37 @@ class GameViewController: UIViewController {
         view.ignoresSiblingOrder = true
         view.showsFPS = false
         view.showsNodeCount = false
+
+        guard let view = self.view as? SKView else { return }
+
+        let scene = MainMenuScene(size: view.bounds.size)
+        scene.scaleMode = .aspectFill
+        view.presentScene(scene)
+
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
+        
+        guard let skView = view as? SKView else { return }
+
+        let boardScene = GameBoardScene(size: skView.bounds.size)
+        boardScene.scaleMode = .resizeFill
+        skView.presentScene(boardScene)
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = true
+        skView.showsNodeCount = true
+        let menuScene = MainMenuScene(size: skView.bounds.size)
+        menuScene.scaleMode = .resizeFill
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
+        skView.presentScene(menuScene)
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        return .portrait
     }
 
     override var prefersStatusBarHidden: Bool {
