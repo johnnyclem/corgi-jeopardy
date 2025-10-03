@@ -1,5 +1,4 @@
 import SpriteKit
-import AVFoundation
 
 /// Displays an active clue and reacts with corgi themed animations and sound
 /// effects whenever the player or AI answers the question. The scene is

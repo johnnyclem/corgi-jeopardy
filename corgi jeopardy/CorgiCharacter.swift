@@ -1,5 +1,4 @@
 import SpriteKit
-import AVFoundation
 
 /// Represents a reusable corgi companion sprite that can perform themed
 /// animations (idle, celebration, sad, and wager) and trigger matching sound
@@ -114,12 +113,9 @@ final class CorgiCharacter {
     }
 
     private static func loadTextures(atlasNamed name: String) -> [SKTexture] {
-        guard Bundle.main.path(forResource: name, ofType: "atlas") != nil else {
-            return []
-        }
-
         let atlas = SKTextureAtlas(named: name)
         let sortedNames = atlas.textureNames.sorted()
+        guard !sortedNames.isEmpty else { return [] }
         return sortedNames.map { atlas.textureNamed($0) }
     }
 }

@@ -1,5 +1,4 @@
 import SpriteKit
-import AVFoundation
 
 /// A lightweight wager screen that highlights the corgi companion while the
 /// player decides on an amount for Daily Double or Daily Doo-Doo events. This
