@@ -15,14 +15,20 @@ class GameViewController: UIViewController {
         view.ignoresSiblingOrder = true
         view.showsFPS = false
         view.showsNodeCount = false
+        
+        guard let skView = view as? SKView else { return }
+
+        let menuScene = MainMenuScene(size: skView.bounds.size)
+        menuScene.scaleMode = .resizeFill
+
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
+        skView.presentScene(menuScene)
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        return .portrait
     }
 
     override var prefersStatusBarHidden: Bool {
