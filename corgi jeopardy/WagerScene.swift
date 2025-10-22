@@ -1,19 +1,25 @@
 import SpriteKit
 import UIKit
 
-/// Scene displayed when a player hits a Daily Double and must enter a wager.
-class WagerScene: SKScene {
-    private let clue: Clue
+final class WagerScene: SKScene {
+    private let context: GameState.WagerContext
     private let promptLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
     private let feedbackLabel = SKLabelNode(fontNamed: "AvenirNext-Regular")
     private var wagerField: UITextField?
-    private let maxWager: Int
 
-    init(size: CGSize, clue: Clue) {
-        self.clue = clue
-        self.maxWager = max(0, GameState.shared.currentPlayerScore)
+    private var maximumWager: Int {
+        switch context.kind {
+        case let .dailyDouble(max):
+            return max
+        case let .dailyDooDoo(_, max):
+            return max
+        }
+    }
+
+    init(size: CGSize, context: GameState.WagerContext) {
+        self.context = context
         super.init(size: size)
-        self.scaleMode = .aspectFill
+        scaleMode = .aspectFill
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -21,58 +27,74 @@ class WagerScene: SKScene {
     }
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor.black
+        super.didMove(to: view)
+        backgroundColor = SKColor(red: 10/255, green: 20/255, blue: 48/255, alpha: 1)
 
-        promptLabel.text = "Daily Double! Wager up to your score: $\(maxWager)"
-        promptLabel.fontSize = 28
-        promptLabel.numberOfLines = 0
-        promptLabel.preferredMaxLayoutWidth = size.width * 0.8
-        promptLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.65)
-        addChild(promptLabel)
-
-        feedbackLabel.fontSize = 20
-        feedbackLabel.fontColor = .red
-        feedbackLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.55)
-        feedbackLabel.alpha = 0
-        addChild(feedbackLabel)
-
-        let submitButton = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        submitButton.name = "submitButton"
-        submitButton.text = "Submit Wager"
-        submitButton.fontSize = 24
-        submitButton.position = CGPoint(x: size.width / 2, y: size.height * 0.4)
-        addChild(submitButton)
-
-        let cancelButton = SKLabelNode(fontNamed: "AvenirNext-Regular")
-        cancelButton.name = "cancelButton"
-        cancelButton.text = "Cancel"
-        cancelButton.fontSize = 20
-        cancelButton.position = CGPoint(x: size.width / 2, y: size.height * 0.3)
-        addChild(cancelButton)
-
+        configurePrompt()
+        layoutButtons()
         configureTextField(in: view)
-    }
-
-    private func configureTextField(in view: SKView) {
-        let width = min(view.bounds.width * 0.6, 280)
-        let textFieldFrame = CGRect(x: (view.bounds.width - width) / 2,
-                                    y: view.bounds.height * 0.45,
-                                    width: width,
-                                    height: 44)
-        let textField = UITextField(frame: textFieldFrame)
-        textField.placeholder = "Enter wager"
-        textField.borderStyle = .roundedRect
-        textField.keyboardType = .numberPad
-        textField.textAlignment = .center
-        textField.becomeFirstResponder()
-        view.addSubview(textField)
-        wagerField = textField
     }
 
     override func willMove(from view: SKView) {
         super.willMove(from: view)
         wagerField?.removeFromSuperview()
         wagerField = nil
+    }
+
+    private func configurePrompt() {
+        promptLabel.fontSize = 28
+        promptLabel.numberOfLines = 0
+        promptLabel.preferredMaxLayoutWidth = size.width * 0.8
+        promptLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.65)
+        promptLabel.text = promptText()
+        addChild(promptLabel)
+
+        feedbackLabel.fontSize = 20
+        feedbackLabel.fontColor = .red
+        feedbackLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.52)
+        feedbackLabel.alpha = 0
+        addChild(feedbackLabel)
+    }
+
+    private func promptText() -> String {
+        switch context.kind {
+        case .dailyDouble:
+            let max = maximumWager
+            return "Daily Double! Wager up to your score: $\(max)"
+        case let .dailyDooDoo(opponent, _):
+            return "Daily Doo-Doo! Wager up to \(opponent.displayName)'s score."
+        }
+    }
+
+    private func layoutButtons() {
+        let submit = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        submit.text = "Submit Wager"
+        submit.name = "submit"
+        submit.fontSize = 24
+        submit.position = CGPoint(x: size.width / 2, y: size.height * 0.38)
+        addChild(submit)
+
+        let cancel = SKLabelNode(fontNamed: "AvenirNext-Regular")
+        cancel.text = "Cancel"
+        cancel.name = "cancel"
+        cancel.fontSize = 20
+        cancel.position = CGPoint(x: size.width / 2, y: size.height * 0.3)
+        addChild(cancel)
+    }
+
+    private func configureTextField(in view: SKView) {
+        let width = min(view.bounds.width * 0.6, 280)
+        let frame = CGRect(x: (view.bounds.width - width) / 2,
+                           y: view.bounds.height * 0.5,
+                           width: width,
+                           height: 44)
+        let field = UITextField(frame: frame)
+        field.borderStyle = .roundedRect
+        field.keyboardType = .numberPad
+        field.placeholder = "Enter wager"
+        view.addSubview(field)
+        field.becomeFirstResponder()
+        wagerField = field
     }
 
     private func showValidation(message: String) {
@@ -84,25 +106,26 @@ class WagerScene: SKScene {
         ]))
     }
 
-    private func validateAndProceed() {
-        guard let text = wagerField?.text, let wager = Int(text) else {
+    private func submitWager() {
+        guard let text = wagerField?.text, let value = Int(text) else {
             showValidation(message: "Please enter a valid number.")
             return
         }
 
-        guard wager >= 0 && wager <= maxWager else {
-            showValidation(message: "Wager must be between 0 and $\(maxWager).")
+        guard value >= 0 && value <= maximumWager else {
+            showValidation(message: "Wager must be between 0 and $\(maximumWager).")
             return
         }
 
-        GameState.shared.currentWager = wager
+        GameState.shared.setActiveWager(amount: value, for: context)
         presentClueScene()
     }
 
     private func presentClueScene() {
         guard let view = view else { return }
-        let clueScene = ClueScene(size: view.bounds.size, clue: clue, isWager: true)
-        view.presentScene(clueScene, transition: SKTransition.crossFade(withDuration: 0.5))
+        let clueScene = ClueScene(size: view.bounds.size, clue: context.clue)
+        clueScene.scaleMode = scaleMode
+        view.presentScene(clueScene, transition: SKTransition.crossFade(withDuration: 0.4))
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -110,10 +133,10 @@ class WagerScene: SKScene {
         let location = touch.location(in: self)
         let nodes = nodes(at: location)
 
-        if nodes.contains(where: { $0.name == "submitButton" }) {
-            validateAndProceed()
-        } else if nodes.contains(where: { $0.name == "cancelButton" }) {
-            wagerField?.text = ""
+        if nodes.contains(where: { $0.name == "submit" }) {
+            submitWager()
+        } else if nodes.contains(where: { $0.name == "cancel" }) {
+            GameState.shared.clearWager()
             presentClueScene()
         }
     }

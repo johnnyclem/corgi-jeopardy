@@ -1,211 +1,31 @@
 import Foundation
 
-/// A simple global game state model used to coordinate scores and wagers across scenes.
+/// Centralized model responsible for tracking players, scores, round
+/// progression, and the Jeopardy-style board for the game.  The state object is
+/// intentionally feature rich so that SpriteKit scenes can focus on
+/// presentation logic while tests can validate the core rules independently of
+/// rendering.
 final class GameState {
-    static let shared = GameState()
+    // MARK: - Nested Types
 
-    /// Mapping of player identifiers to their scores.
-    var playerScores: [String: Int]
-
-    /// Identifier for the player whose turn it currently is.
-    var currentTurn: String
-
-    /// Stores the most recent wager placed for Daily Double style clues.
-    var currentWager: Int
-
-    private init() {
-        // Provide a minimal default configuration so the app can run
-        // even before real player data has been configured.
-        self.playerScores = ["Player1": 0]
-        self.currentTurn = "Player1"
-        self.currentWager = 0
-    }
-
-    /// Convenience accessor for the active player's score.
-    var currentPlayerScore: Int {
-        return playerScores[currentTurn] ?? 0
-    }
-
-    /// Updates the score for a particular player by the provided amount.
-    func updateScore(for player: String, by delta: Int) {
-        let current = playerScores[player] ?? 0
-        playerScores[player] = current + delta
-    }
-
-    /// Updates the score for the active player.
-    func updateCurrentPlayerScore(by delta: Int) {
-        updateScore(for: currentTurn, by: delta)
-struct Clue {
-    let id: UUID
-    let category: String
-    let value: Int
-    let question: String
-    let answer: String
-    var isRevealed: Bool
-
-    init(id: UUID = UUID(), category: String, value: Int, question: String, answer: String, isRevealed: Bool = false) {
-        self.id = id
-        self.category = category
-        self.value = value
-        self.question = question
-        self.answer = answer
-        self.isRevealed = isRevealed
-    }
-}
-
-final class GameState {
-    static let shared = GameState()
-
-    enum Difficulty: String, CaseIterable {
-import SpriteKit
-
-struct Clue: Identifiable {
-    enum Difficulty {
-        case easy
-        case medium
-        case hard
-
-        var buzzDelay: TimeInterval {
-            switch self {
-            case .easy:
-                return 3.0
-            case .medium:
-                return 2.0
-            case .hard:
-                return 1.0
-            }
-        }
-
-        var correctProbability: Double {
-            switch self {
-            case .easy:
-                return 0.5
-            case .medium:
-                return 0.75
-            case .hard:
-                return 0.9
-            }
-        }
-    }
-
-    struct Player: Identifiable, Equatable {
-        let id: String
-        var name: String
-        var isHuman: Bool
-        var difficulty: Difficulty
-
-        init(id: String, name: String, isHuman: Bool, difficulty: Difficulty) {
-            self.id = id
-            self.name = name
-            self.isHuman = isHuman
-            self.difficulty = difficulty
-        }
-    }
-
-    private(set) var players: [Player]
-    private(set) var playerScores: [String: Int]
-    private(set) var currentTurnIndex: Int
-
-    var currentTurn: Player {
-        players[currentTurnIndex]
-    }
-
-    private init() {
-        let human = Player(id: "human", name: "You", isHuman: true, difficulty: .medium)
-        let aiOne = Player(id: "ai_easy", name: "Sir Barksalot", isHuman: false, difficulty: .easy)
-        let aiTwo = Player(id: "ai_hard", name: "Professor Wiggles", isHuman: false, difficulty: .hard)
-
-        players = [human, aiOne, aiTwo]
-        playerScores = Dictionary(uniqueKeysWithValues: players.map { ($0.id, 0) })
-        currentTurnIndex = 0
-    }
-
-    func player(withId id: String) -> Player? {
-        players.first { $0.id == id }
-    }
-
-    func score(for player: Player) -> Int {
-        playerScores[player.id] ?? 0
-    }
-
-    func updateScore(for player: Player, delta: Int) {
-        playerScores[player.id, default: 0] += delta
-    }
-
-    func setPlayers(_ players: [Player]) {
-        let existingScores = playerScores
-        self.players = players
-        playerScores = Dictionary(uniqueKeysWithValues: players.map { ($0.id, existingScores[$0.id] ?? 0) })
-        currentTurnIndex = min(currentTurnIndex, max(players.count - 1, 0))
-    }
-
-    func setScore(_ score: Int, for player: Player) {
-        playerScores[player.id] = score
-    }
-
-    func advanceTurn() {
-        guard !players.isEmpty else { return }
-        currentTurnIndex = (currentTurnIndex + 1) % players.count
-    }
-
-    func setCurrentTurn(to player: Player) {
-        if let index = players.firstIndex(of: player) {
-            currentTurnIndex = index
-        }
-        var buzzDelayRange: ClosedRange<TimeInterval> {
-            switch self {
-            case .easy:
-                return 2.5...3.5
-            case .medium:
-                return 1.5...2.5
-            case .hard:
-                return 0.8...1.5
-            }
-        }
-
-        var correctnessProbability: Double {
-            switch self {
-            case .easy:
-                return 0.45
-            case .medium:
-                return 0.65
-            case .hard:
-                return 0.85
-            }
-        }
-    }
-
-    let id = UUID()
-    var category: String
-//
-//  GameState.swift
-//  corgi jeopardy
-//
-//  Created as part of Ticket 2.2 to back the game board scene.
-//
-
-import Foundation
-
-struct Clue: Identifiable {
-    let id = UUID()
-    let value: Int
-    let question: String
-    let answer: String
-import Foundation
-
-/// Centralized state management for the game. Stores player information, scoring,
-/// round progression, and lightweight board data. The model is intentionally
-/// simple for now but can be expanded as future tickets introduce additional
-/// gameplay systems.
-final class GameState {
-    /// Represents the possible rounds in the game.
-    enum RoundType: CaseIterable {
+    enum Round: Int, CaseIterable {
         case jeopardy
         case doubleJeopardy
         case finalJeopardy
 
-        /// Provides the next round in the cycle or returns `nil` when the game is over.
-        func next() -> RoundType? {
+        var displayName: String {
+            switch self {
+            case .jeopardy:
+                return "Jeopardy!"
+            case .doubleJeopardy:
+                return "Double Jeopardy!"
+            case .finalJeopardy:
+                return "Final Jeopardy!"
+            }
+        }
+
+        /// Returns the round that follows the current one, if any.
+        var next: Round? {
             switch self {
             case .jeopardy:
                 return .doubleJeopardy
@@ -215,92 +35,245 @@ final class GameState {
                 return nil
             }
         }
+
+        /// Multiplier applied to the standard clue values.
+        var valueMultiplier: Int {
+            switch self {
+            case .jeopardy:
+                return 1
+            case .doubleJeopardy:
+                return 2
+            case .finalJeopardy:
+                return 0
+            }
+        }
     }
 
-    /// Lightweight data representation for a clue on the board.
-    struct Clue {
-        let value: Int
-        let question: String
-        let answer: String
+    enum AIDifficulty: CaseIterable {
+        case easy
+        case medium
+        case hard
+
+        var buzzDelayRange: ClosedRange<TimeInterval> {
+            switch self {
+            case .easy:
+                return 2.5...3.5
+            case .medium:
+                return 1.5...2.5
+            case .hard:
+                return 0.8...1.4
+            }
+        }
+
+        var correctnessProbability: Double {
+            switch self {
+            case .easy:
+                return 0.45
+            case .medium:
+                return 0.7
+            case .hard:
+                return 0.9
+            }
+        }
+    }
+
+    struct Player: Identifiable, Equatable {
+        let id: String
+        var displayName: String
+        var isHuman: Bool
+        var difficulty: AIDifficulty?
+
+        init(id: String, displayName: String, isHuman: Bool, difficulty: AIDifficulty?) {
+            self.id = id
+            self.displayName = displayName
+            self.isHuman = isHuman
+            self.difficulty = difficulty
+        }
+    }
+
+    struct Category {
+        let title: String
+        let isDogCategory: Bool
+        var clues: [Clue]
+    }
+
+    struct Clue: Identifiable {
+        let id: UUID
+        let category: String
+        var value: Int
+        var question: String
+        var answer: String
         var isRevealed: Bool
         var isDailyDouble: Bool
         var isDailyDooDoo: Bool
-    }
 
-    static let shared = GameState()
-
-    /// Ordered list of players – index 0 is reserved for the human player.
-    let playerOrder: [String]
-    /// Convenience accessor for the primary human player identifier.
-    let humanPlayerId: String
-    /// The identifiers that represent AI opponents.
-    let aiPlayerIds: [String]
-enum RoundType: Int, Codable {
-    case jeopardy
-    case doubleJeopardy
-    case finalJeopardy
-
-    var next: RoundType? {
-        switch self {
-        case .jeopardy:
-            return .doubleJeopardy
-        case .doubleJeopardy:
-            return .finalJeopardy
-        case .finalJeopardy:
-            return nil
+        init(id: UUID = UUID(), category: String, value: Int, question: String, answer: String, isRevealed: Bool = false, isDailyDouble: Bool = false, isDailyDooDoo: Bool = false) {
+            self.id = id
+            self.category = category
+            self.value = value
+            self.question = question
+            self.answer = answer
+            self.isRevealed = isRevealed
+            self.isDailyDouble = isDailyDouble
+            self.isDailyDooDoo = isDailyDooDoo
         }
     }
-}
 
-struct Clue: Codable, Identifiable {
-    let id = UUID()
-    var value: Int
-    var question: String
-    var answer: String
-    var isRevealed: Bool
-    var isDailyDouble: Bool
-    var isDailyDooDoo: Bool
-    var difficulty: Difficulty
-}
+    struct WagerContext {
+        enum Kind {
+            case dailyDouble(max: Int)
+            case dailyDooDoo(opponent: Player, max: Int)
+        }
 
-enum RoundType: Int, Codable {
-    case jeopardy
-    case doubleJeopardy
-    case finalJeopardy
-}
+        let clue: Clue
+        let kind: Kind
+    }
 
-struct Category {
-    let title: String
-    var clues: [Clue]
-}
+    struct WagerResolution {
+        enum Kind {
+            case dailyDouble
+            case dailyDooDoo
+        }
 
-final class GameState {
+        let kind: Kind
+        let affectedPlayer: Player
+        let delta: Int
+    }
+
+    private enum Constants {
+        static let highScoresKey = "corgiJeopardy.highScores"
+        static let maxStoredHighScores = 10
+        static let defaultAvatars = ["corgi1", "corgi2", "corgi3", "corgi4", "corgi5"]
+    }
+
+    private enum WagerKind {
+        case dailyDouble(playerId: String)
+        case dailyDooDoo(opponentId: String)
+    }
+
+    // MARK: - Singleton
+
     static let shared = GameState()
 
-    private let highScoresKey = "corgiJeopardy.highScores"
-    enum RoundType {
-        case jeopardy
-        case doubleJeopardy
-        case finalJeopardy
+    // MARK: - Stored Properties
+
+    private(set) var players: [Player]
+    private(set) var scores: [String: Int]
+    private(set) var currentPlayerIndex: Int
+    private(set) var currentRound: Round
+    private(set) var board: [Category]
+    private(set) var highScores: [Int]
+
+    var playerAvatars: [String: String]
+    var lastSelectedClue: Clue?
+
+    private var rng = SystemRandomNumberGenerator()
+    private var activeWager: (clueId: UUID, kind: WagerKind, amount: Int)?
+
+    // MARK: - Initialisation
+
+    init(players: [Player]? = nil) {
+        let defaultPlayers = players ?? GameState.makeDefaultPlayers()
+        self.players = defaultPlayers
+        self.scores = Dictionary(uniqueKeysWithValues: defaultPlayers.map { ($0.id, 0) })
+        self.currentPlayerIndex = 0
+        self.currentRound = .jeopardy
+        self.board = []
+        self.playerAvatars = [:]
+        self.lastSelectedClue = nil
+
+        if let storedScores = UserDefaults.standard.array(forKey: Constants.highScoresKey) as? [Int] {
+            self.highScores = storedScores
+        } else {
+            self.highScores = []
+        }
+
+        regenerateBoard()
     }
 
-    private(set) var playerScores: [String: Int] = [:]
-    private(set) var currentRound: RoundType = .jeopardy
-    private(set) var currentTurn: String = "Player1"
-    private(set) var board: [Category] = []
+    // MARK: - Player Convenience
 
-    private init() {
-        resetBoard()
+    private static func makeDefaultPlayers() -> [Player] {
+        [
+            Player(id: "human", displayName: "You", isHuman: true, difficulty: nil),
+            Player(id: "ai_easy", displayName: "Sir Barksalot", isHuman: false, difficulty: .easy),
+            Player(id: "ai_hard", displayName: "Professor Wiggles", isHuman: false, difficulty: .hard)
+        ]
     }
 
-    func resetBoard() {
-        board = GameState.generateDefaultBoard(for: currentRound)
+    var playerOrder: [String] {
+        players.map { $0.id }
+    }
+
+    var humanPlayerId: String {
+        players.first(where: { $0.isHuman })?.id ?? players[0].id
+    }
+
+    var aiPlayerIds: [String] {
+        players.filter { !$0.isHuman }.map { $0.id }
+    }
+
+    var playerScores: [String: Int] {
+        scores
+    }
+
+    var currentPlayer: Player {
+        players[currentPlayerIndex]
+    }
+
+    var currentPlayerScore: Int {
+        scores[currentPlayer.id, default: 0]
+    }
+
+    var score: Int {
+        scores[humanPlayerId, default: 0]
+    }
+
+    var availableAvatarNames: [String] {
+        Constants.defaultAvatars
+    }
+
+    func avatarName(for playerId: String) -> String {
+        playerAvatars[playerId] ?? availableAvatarNames.first ?? "corgi"
+    }
+
+    func setAvatar(_ name: String, for playerId: String) {
+        playerAvatars[playerId] = name
+    }
+
+    func assignRandomAvatarsToAI(excluding excludedNames: [String] = []) {
+        let pool = availableAvatarNames.filter { !excludedNames.contains($0) }
+        var iterator = pool.makeIterator()
+        for player in players where !player.isHuman {
+            if let avatar = iterator.next() {
+                playerAvatars[player.id] = avatar
+            }
+        }
+    }
+
+    func ensureAIAvatarsAssigned() {
+        var unused = availableAvatarNames.filter { name in
+            !playerAvatars.values.contains(name)
+        }
+        for player in players where !player.isHuman {
+            if playerAvatars[player.id] == nil {
+                if unused.isEmpty {
+                    unused = availableAvatarNames
+                }
+                playerAvatars[player.id] = unused.removeFirst()
+            }
+        }
+    }
+
+    // MARK: - Board Management
+
+    func regenerateBoard() {
+        board = BoardGenerator.generateBoard(for: currentRound, using: &rng)
     }
 
     func clue(atColumn column: Int, row: Int) -> Clue? {
-        guard board.indices.contains(column), board[column].clues.indices.contains(row) else {
-            return nil
-        }
+        guard board.indices.contains(column) else { return nil }
+        guard board[column].clues.indices.contains(row) else { return nil }
         return board[column].clues[row]
     }
 
@@ -309,344 +282,184 @@ final class GameState {
         board[column].clues[row].isRevealed = true
     }
 
-    private static func generateDefaultBoard(for round: RoundType) -> [Category] {
-        let baseValues = [200, 400, 600, 800, 1000]
-        let categories = [
-            "Corgi Breeds",
-            "Dog Tricks",
-            "Famous Pups",
-            "Paw-some Places",
-            "Treats & Eats",
-            "Tail Tales"
-        ]
-
-        return categories.map { title in
-            let clues = baseValues.enumerated().map { rowIndex, value -> Clue in
-                let multiplier = (round == .doubleJeopardy) ? 2 : 1
-                let adjustedValue = value * multiplier
-                return Clue(
-                    value: adjustedValue,
-                    question: "Placeholder question #\(rowIndex + 1) for \(title).",
-                    answer: "Placeholder answer",
-                    isRevealed: false,
-                    isDailyDouble: false,
-                    isDailyDooDoo: false
-                )
-            }
-            return Category(title: title, clues: clues)
-        }
-final class GameState {
-    private enum Constants {
-        static let highScoresKey = "GameState.HighScores"
-        static let maxHighScoresStored = 10
+    var allCluesRevealed: Bool {
+        board.flatMap { $0.clues }.allSatisfy { $0.isRevealed }
     }
 
-    private let players: [String]
-    private(set) var highScores: [Int]
+    // MARK: - Round Progression
 
-    var playerScores: [String: Int]
-    var currentRound: RoundType
-    var currentTurn: String
-    var board: [[Clue]]
-    var playerOrder: [String]
-    var aiPlayers: [String]
-    var playerAvatars: [String: String]
-    var difficulty: Clue.Difficulty
-    var lastSelectedClue: Clue?
-    var wager: Int?
-
-    private init() {
-        self.playerOrder = ["Player1", "AI1"]
-        self.aiPlayers = ["AI1"]
-        self.playerScores = ["Player1": 0, "AI1": 0]
-        self.currentRound = .jeopardy
-        self.currentTurn = "Player1"
-        self.board = []
-        self.playerAvatars = [:]
-        self.difficulty = .medium
-    }
-
-    func reset(withPlayers players: [String] = ["Player1", "AI1"]) {
-        playerOrder = players
-        aiPlayers = players.filter { $0.hasPrefix("AI") }
-        playerScores = Dictionary(uniqueKeysWithValues: players.map { ($0, 0) })
-        currentRound = .jeopardy
-        currentTurn = players.first ?? "Player1"
-        board = []
-        wager = nil
-    }
-
-    func updateScore(player: String, amount: Int) {
-        let current = playerScores[player, default: 0]
-        playerScores[player] = current + amount
-    }
-
-    func rotateTurn() {
-        guard let currentIndex = playerOrder.firstIndex(of: currentTurn) else { return }
-        let nextIndex = playerOrder.index(after: currentIndex)
-        currentTurn = playerOrder[nextIndex % playerOrder.count]
-    }
-
-    func recordHighScoreIfNeeded() {
-        guard let humanScore = playerScores[playerOrder.first ?? "Player1"] else { return }
-        var scores = UserDefaults.standard.array(forKey: highScoresKey) as? [Int] ?? []
-        scores.append(humanScore)
-        scores.sort(by: >)
-        scores = Array(scores.prefix(10))
-        UserDefaults.standard.set(scores, forKey: highScoresKey)
-    }
-
-    func avatarName(for player: String) -> String? {
-        return playerAvatars[player]
-
-    /// Mapping of player identifier to avatar image name.
-    var playerAvatars: [String: String]
-
-    private(set) var highScores: [Int]
-
-    /// All available avatar texture names in the project.
-    let availableAvatarNames: [String] = [
-        "corgi1.png",
-        "corgi2.png",
-        "corgi3.png",
-        "corgi4.png",
-        "corgi5.png"
-    ]
-
-    private let highScoresKey = "HighScores"
-
-    private init() {
-        // Default players – can be customized in future tickets.
-        let defaultPlayers = ["Player1", "AI1", "AI2"]
-        playerOrder = defaultPlayers
-        humanPlayerId = defaultPlayers.first ?? "Player1"
-        aiPlayerIds = Array(defaultPlayers.dropFirst())
-
-        playerScores = Dictionary(uniqueKeysWithValues: defaultPlayers.map { ($0, 0) })
-        currentRound = .jeopardy
-        currentTurn = humanPlayerId
-        board = []
-        playerAvatars = [:]
-
-        highScores = UserDefaults.standard.array(forKey: highScoresKey) as? [Int] ?? []
-
-        assignDefaultAvatars()
-    }
-
-    /// Resets the entire game state back to its initial configuration.
-    func reset() {
-        for playerId in playerOrder {
-            playerScores[playerId] = 0
-        }
-        currentRound = .jeopardy
-        currentTurn = humanPlayerId
-        board.removeAll()
-        assignDefaultAvatars()
-    }
-
-    /// Updates the score for a specific player by the provided delta.
-    func updateScore(player: String, amount: Int) {
-        let existing = playerScores[player] ?? 0
-        playerScores[player] = existing + amount
-    }
-
-    /// Progresses the game to the next round, if available.
-    func nextRound() {
+    @discardableResult
+    func advanceToNextRound() -> Round {
         if let next = currentRound.next() {
             currentRound = next
-        }
-    }
-
-    /// Records a new high score entry.
-    func recordHighScore(_ score: Int) {
-        highScores.append(score)
-        highScores.sort(by: >)
-        highScores = Array(highScores.prefix(10))
-        UserDefaults.standard.set(highScores, forKey: highScoresKey)
-    }
-
-    /// Ensures AI opponents have avatar assignments, generating random ones if necessary.
-    func ensureAIAvatarsAssigned() {
-        let humanAvatar = playerAvatars[humanPlayerId]
-        let excluded = humanAvatar.map { [$0] } ?? []
-        let requiresAssignment = aiPlayerIds.contains { playerAvatars[$0] == nil }
-        if requiresAssignment {
-            assignRandomAvatarsToAI(excluding: excluded)
-        }
-    }
-
-    /// Updates the stored avatar for a specific player.
-    func setAvatar(_ imageName: String, for player: String) {
-        playerAvatars[player] = imageName
-    }
-
-    /// Returns the avatar name for a player, falling back to a default if needed.
-    func avatarName(for player: String) -> String {
-        if let stored = playerAvatars[player] {
-            return stored
-        }
-        // Provide a deterministic fallback to keep UI stable.
-        if player == humanPlayerId {
-            return availableAvatarNames.first ?? "corgi1.png"
-        }
-        // Assign random avatar on the fly for AI opponents if missing.
-        assignRandomAvatarsToAI(excluding: Array(Set(playerAvatars.values)))
-        return playerAvatars[player] ?? availableAvatarNames.first ?? "corgi1.png"
-    }
-
-    /// Assigns random avatars to AI opponents, optionally avoiding a collection of names.
-    func assignRandomAvatarsToAI(excluding excludedNames: [String]) {
-        var pool = availableAvatarNames.filter { !excludedNames.contains($0) }
-        if pool.isEmpty {
-            pool = availableAvatarNames
-        }
-
-        for aiId in aiPlayerIds {
-            if pool.isEmpty {
-                pool = availableAvatarNames
-            }
-            let avatar = pool.randomElement() ?? availableAvatarNames.first ?? "corgi1.png"
-            playerAvatars[aiId] = avatar
-            if let index = pool.firstIndex(of: avatar) {
-                pool.remove(at: index)
+            if next != .finalJeopardy {
+                regenerateBoard()
+            } else {
+                board = []
             }
         }
+        return currentRound
     }
 
-    /// Assigns a default avatar to the human player and random avatars to AI opponents.
-    private func assignDefaultAvatars() {
-        let defaultAvatar = availableAvatarNames.first ?? "corgi1.png"
-        playerAvatars[humanPlayerId] = defaultAvatar
-        assignRandomAvatarsToAI(excluding: [defaultAvatar])
-    convenience init(aiPlayerCount: Int) {
-        let clampedCount = max(1, min(aiPlayerCount, 2))
-        var players = ["Player1"]
-        for index in 1...clampedCount {
-            players.append("AI\(index)")
-        }
-        self.init(withPlayers: players)
-    }
-
-    init(withPlayers players: [String]) {
-        precondition(!players.isEmpty, "GameState requires at least one player")
-        self.players = players
-        self.playerScores = Dictionary(uniqueKeysWithValues: players.map { ($0, 0) })
-        self.currentRound = .jeopardy
-        self.currentTurn = players[0]
-        self.board = GameState.generateBoard(for: .jeopardy)
-        self.highScores = GameState.loadHighScores()
-    }
-
-    func reset() {
-        for player in players {
-            playerScores[player] = 0
-        }
+    func resetForNewGame() {
+        scores = Dictionary(uniqueKeysWithValues: players.map { ($0.id, 0) })
+        currentPlayerIndex = 0
         currentRound = .jeopardy
-        currentTurn = players[0]
-        board = GameState.generateBoard(for: .jeopardy)
-    }
-
-    func updateScore(player: String, amount: Int) {
-        guard playerScores[player] != nil else { return }
-        playerScores[player, default: 0] += amount
-        updateHighScoresIfNeeded(for: player)
-    }
-
-    func nextRound() {
-        guard let nextRound = currentRound.next else { return }
-        currentRound = nextRound
-        board = GameState.generateBoard(for: nextRound)
+        activeWager = nil
+        lastSelectedClue = nil
+        regenerateBoard()
     }
 
     func advanceTurn() {
-        guard let currentIndex = players.firstIndex(of: currentTurn) else { return }
-        let nextIndex = (currentIndex + 1) % players.count
-        currentTurn = players[nextIndex]
+        guard !players.isEmpty else { return }
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.count
     }
 
-    func recordHighScore(for player: String) {
-        let score = playerScores[player] ?? 0
-        highScores.append(score)
-        highScores.sort(by: >)
-        if highScores.count > Constants.maxHighScoresStored {
-            highScores = Array(highScores.prefix(Constants.maxHighScoresStored))
-        }
-        GameState.save(highScores: highScores)
+    // MARK: - Scoring
+
+    func updateScore(playerId: String, delta: Int) {
+        scores[playerId, default: 0] += delta
     }
 
-    private func updateHighScoresIfNeeded(for player: String) {
-        let score = playerScores[player] ?? 0
-        guard let bestScore = highScores.first else {
-            highScores = [score]
-            GameState.save(highScores: highScores)
-            return
+    func updateScore(for player: Player, delta: Int) {
+        updateScore(playerId: player.id, delta: delta)
+    }
+
+    func updateCurrentPlayerScore(by delta: Int) {
+        updateScore(playerId: currentPlayer.id, delta: delta)
+    }
+
+    func score(for player: Player) -> Int {
+        scores[player.id, default: 0]
+    }
+
+    var orderedPlayersByScore: [Player] {
+        players.sorted { score(for: $0) > score(for: $1) }
+    }
+
+    var winningPlayer: Player? {
+        orderedPlayersByScore.first
+    }
+
+    func updateHighScoreIfNeededForHumanWin() -> Bool {
+        guard let winner = winningPlayer, winner.id == humanPlayerId else {
+            return false
+        }
+        let humanScore = score(for: winner)
+        var updated = highScores
+        updated.append(humanScore)
+        updated.sort(by: >)
+        if updated.count > Constants.maxStoredHighScores {
+            updated = Array(updated.prefix(Constants.maxStoredHighScores))
+        }
+        let changed = updated != highScores
+        if changed {
+            highScores = updated
+            UserDefaults.standard.set(updated, forKey: Constants.highScoresKey)
+        }
+        return changed
+    }
+
+    // MARK: - Trivia Helpers
+
+    func validateAnswer(_ answer: String, correctAnswer: String) -> Bool {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return false }
+
+        let validPrefixes = [
+            "what is", "who is", "where is",
+            "what are", "who are", "where are"
+        ]
+        guard validPrefixes.contains(where: { trimmed.hasPrefix($0) }) else {
+            return false
         }
 
-        if score > bestScore {
-            highScores.append(score)
-            highScores.sort(by: >)
-            if highScores.count > Constants.maxHighScoresStored {
-                highScores = Array(highScores.prefix(Constants.maxHighScoresStored))
-            }
-            GameState.save(highScores: highScores)
+        let sanitizedAnswer = correctAnswer.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.contains(sanitizedAnswer)
+    }
+
+    func updateScore(for clueValue: Int, isCorrect: Bool, isWager: Bool = false) {
+        let positiveValue = max(0, clueValue)
+        if isWager {
+            let maxWager = max(score, 0)
+            let applied = min(positiveValue, maxWager)
+            let delta = isCorrect ? applied : -applied
+            updateScore(playerId: humanPlayerId, delta: delta)
+        } else {
+            let delta = isCorrect ? positiveValue : -positiveValue
+            updateScore(playerId: humanPlayerId, delta: delta)
         }
     }
 
-    private static func generateBoard(for round: RoundType) -> [[Clue]] {
-        if round == .finalJeopardy {
-            let finalClue = Clue(
-                value: 0,
-                question: "Final Jeopardy Question",
-                answer: "Final Answer",
-                isRevealed: false,
-                isDailyDouble: false,
-                isDailyDooDoo: false
-            )
-            return [[finalClue]]
-        }
-
-        let rows = 5
-        let columns = 6
-        var clues: [[Clue]] = []
-
-        let dailyDoublePosition = (Int.random(in: 0..<rows), Int.random(in: 0..<columns))
-        var dailyDooDooPosition: (row: Int, column: Int)
-        repeat {
-            dailyDooDooPosition = (Int.random(in: 0..<rows), Int.random(in: 0..<columns))
-        } while dailyDooDooPosition == dailyDoublePosition
-
-        for row in 0..<rows {
-            var rowClues: [Clue] = []
-            for column in 0..<columns {
-                let valueMultiplier = round == .doubleJeopardy ? 2 : 1
-                let baseValue = 200 * (row + 1)
-                let value = baseValue * valueMultiplier
-                let isDailyDouble = dailyDoublePosition.row == row && dailyDoublePosition.column == column
-                let isDailyDooDoo = dailyDooDooPosition.row == row && dailyDooDooPosition.column == column
-
-                let clue = Clue(
-                    value: value,
-                    question: "Category \(column + 1) Question \(row + 1)",
-                    answer: "Answer \(row + 1)",
-                    isRevealed: false,
-                    isDailyDouble: isDailyDouble,
-                    isDailyDooDoo: isDailyDooDoo
-                )
-                rowClues.append(clue)
-            }
-            clues.append(rowClues)
-        }
-
-        return clues
+    func generateBoard(categoryCount: Int, using generator: inout RandomNumberGenerator) {
+        board = BoardGenerator.generateBoard(for: currentRound, categoryCount: categoryCount, using: &generator)
     }
 
-    private static func loadHighScores() -> [Int] {
-        let defaults = UserDefaults.standard
-        return defaults.array(forKey: Constants.highScoresKey) as? [Int] ?? []
+    // MARK: - Wager Logic
+
+    func wagerContext(for clue: Clue) -> WagerContext? {
+        if clue.isDailyDouble {
+            return WagerContext(clue: clue, kind: .dailyDouble(max: max(currentPlayerScore, 0)))
+        }
+
+        if clue.isDailyDooDoo, let opponent = selectDailyDooDooOpponent() {
+            let opponentScore = max(score(for: opponent), 0)
+            return WagerContext(clue: clue, kind: .dailyDooDoo(opponent: opponent, max: opponentScore))
+        }
+
+        return nil
     }
 
-    private static func save(highScores: [Int]) {
-        let defaults = UserDefaults.standard
-        defaults.set(highScores, forKey: Constants.highScoresKey)
+    func setActiveWager(amount: Int, for context: WagerContext) {
+        let sanitizedAmount: Int
+        switch context.kind {
+        case let .dailyDouble(maxAmount):
+            sanitizedAmount = min(max(amount, 0), maxAmount)
+            activeWager = (context.clue.id, .dailyDouble(playerId: currentPlayer.id), sanitizedAmount)
+        case let .dailyDooDoo(opponent, maxAmount):
+            sanitizedAmount = min(max(amount, 0), maxAmount)
+            activeWager = (context.clue.id, .dailyDooDoo(opponentId: opponent.id), sanitizedAmount)
+        }
+    }
+
+    var wager: Int? {
+        activeWager?.amount
+    }
+
+    func resolveActiveWager(isCorrect: Bool) -> WagerResolution? {
+        guard let activeWager else { return nil }
+        let resolution: WagerResolution
+        switch activeWager.kind {
+        case let .dailyDouble(playerId):
+            let delta = isCorrect ? activeWager.amount : -activeWager.amount
+            updateScore(playerId: playerId, delta: delta)
+            let player = player(withId: playerId) ?? currentPlayer
+            resolution = WagerResolution(kind: .dailyDouble, affectedPlayer: player, delta: delta)
+        case let .dailyDooDoo(opponentId):
+            let delta = isCorrect ? -activeWager.amount : activeWager.amount
+            updateScore(playerId: opponentId, delta: delta)
+            let player = player(withId: opponentId) ?? players.first { !$0.isHuman } ?? currentPlayer
+            resolution = WagerResolution(kind: .dailyDooDoo, affectedPlayer: player, delta: delta)
+        }
+        self.activeWager = nil
+        return resolution
+    }
+
+    func clearWager() {
+        activeWager = nil
+    }
+
+    // MARK: - Private Helpers
+
+    private func selectDailyDooDooOpponent() -> Player? {
+        players.filter { !$0.isHuman }.sorted { score(for: $0) > score(for: $1) }.first
+    }
+
+    func player(for id: String) -> Player? {
+        players.first { $0.id == id }
+    }
+
+    private func player(withId id: String) -> Player? {
+        player(for: id)
     }
 }
