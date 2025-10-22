@@ -1,38 +1,29 @@
 import Foundation
 
-enum RoundType {
-    case jeopardy
-    case double
-}
-
-struct Clue {
-    let value: Int
-    let category: String
-    let question: String
-    let answer: String
-    var isDailyDouble: Bool
-    var isDailyDooDoo: Bool
-    let isDogCategory: Bool
-}
-
+/// Generates Jeopardy style boards with a mix of general trivia and corgi or
+/// dog themed categories.  The generator owns the data set so that both the
+/// production game and tests can request deterministic boards by supplying a
+/// custom random number generator.
 struct BoardGenerator {
-    private static let generalCategories: [String] = [
-        "History Highlights",
-        "Science Stuff",
-        "Global Geography",
-        "Literary Legends",
-        "Pop Culture Parade",
-        "Tech Triumphs"
-    ]
+    private struct CategoryDefinition {
+        let title: String
+        let isDogCategory: Bool
+        let clues: [(question: String, answer: String)]
+    }
 
-    private static let dogCategories: [String] = [
-        "Corgi Facts",
-        "Paw-some Puns",
-        "Dog Jobs",
-        "Training Treats"
-    ]
+    private static let generalCategories: [CategoryDefinition] = {
+        generalClueBank.map { title, clues in
+            CategoryDefinition(title: title, isDogCategory: false, clues: clues)
+        }
+    }()
 
-    private static let generalClueBank: [String: [(question: String, answer: String)]] = [
+    private static let dogCategories: [CategoryDefinition] = {
+        dogClueBank.map { title, clues in
+            CategoryDefinition(title: title, isDogCategory: true, clues: clues)
+        }
+    }()
+
+    private static let generalClueBank: [String: [(String, String)]] = [
         "History Highlights": [
             ("This ancient wonder of the world was built for Pharaoh Khufu.", "What is the Great Pyramid of Giza?"),
             ("He famously crossed the Rubicon in 49 BCE.", "Who is Julius Caesar?"),
@@ -107,7 +98,7 @@ struct BoardGenerator {
         ]
     ]
 
-    private static let dogClueBank: [String: [(question: String, answer: String)]] = [
+    private static let dogClueBank: [String: [(String, String)]] = [
         "Corgi Facts": [
             ("This royal family famously adores corgis.", "Who are the British royals?"),
             ("This characteristic corgi feature looks like they're wearing fluffy pants.", "What are their britches?"),
@@ -154,89 +145,71 @@ struct BoardGenerator {
             ("This socialization period happens before 16 weeks of age.", "What is the critical puppy window?"),
             ("This type of treat should be pea-sized to avoid overfeeding.", "What is a high-value nibble?"),
             ("This command invites a dog to come sprinting your way.", "What is 'recall' or 'come'?"),
-            ("This release word lets a dog know training time is done.", "What is 'free'?")
+            ("This release word lets a dog know training time is done.", "What is 'free'?" )
         ]
     ]
 
-    static func generateBoard(for round: RoundType) -> [[Clue]] {
-        var rng = SystemRandomNumberGenerator()
-        return generateBoard(for: round, using: &rng)
+    static func generateBoard<T: RandomNumberGenerator>(for round: GameState.Round, categoryCount: Int = 6, using rng: inout T) -> [GameState.Category] {
+        guard categoryCount > 0 else { return [] }
+
+        let dogCategoryCount = min(max(Int.random(in: 1...3, using: &rng), 1), categoryCount)
+        let generalCount = max(categoryCount - dogCategoryCount, 0)
+
+        let selectedDog = Array(dogCategories.shuffled(using: &rng).prefix(dogCategoryCount))
+        let selectedGeneral = Array(generalCategories.shuffled(using: &rng).prefix(generalCount))
+        var selected = selectedDog + selectedGeneral
+        selected.shuffle(using: &rng)
+
+        let baseValues = [200, 400, 600, 800, 1000].map { $0 * max(round.valueMultiplier, 1) }
+
+        var categories: [GameState.Category] = selected.map { definition in
+            let clues = makeClues(for: definition, baseValues: baseValues, using: &rng)
+            return GameState.Category(title: definition.title, isDogCategory: definition.isDogCategory, clues: clues)
+        }
+
+        assignSpecialClues(round: round, in: &categories, using: &rng)
+        return categories
     }
 
-    static func generateBoard<T: RandomNumberGenerator>(for round: RoundType, using rng: inout T) -> [[Clue]] {
-        let dogCategoryCount = Int.random(in: 1...3, using: &rng)
-        let generalCategoryCount = 6 - dogCategoryCount
-
-        let chosenDogCategories = Array(dogCategories.shuffled(using: &rng).prefix(dogCategoryCount))
-        let chosenGeneralCategories = Array(generalCategories.shuffled(using: &rng).prefix(generalCategoryCount))
-
-        var categories = chosenDogCategories + chosenGeneralCategories
-        categories.shuffle(using: &rng)
-
-        let baseValues: [Int]
-        switch round {
-        case .jeopardy:
-            baseValues = [200, 400, 600, 800, 1000]
-        case .double:
-            baseValues = [400, 800, 1200, 1600, 2000]
-        }
-
-        var board: [[Clue]] = []
-        for category in categories {
-            let isDog = dogCategories.contains(category)
-            let bank = isDog ? dogClueBank[category] : generalClueBank[category]
-            guard let clues = bank, clues.count >= 5 else {
-                fatalError("Missing clues for category \(category)")
-            }
-
-            let selected = Array(clues.shuffled(using: &rng).prefix(5))
-
-            let column: [Clue] = selected.enumerated().map { index, element in
-                let value = baseValues[index]
-                return Clue(
-                    value: value,
-                    category: category,
-                    question: element.question,
-                    answer: element.answer,
-                    isDailyDouble: false,
-                    isDailyDooDoo: false,
-                    isDogCategory: isDog
-                )
-            }
-
-            board.append(column)
-        }
-
-        assert(board.count == 6 && board.allSatisfy { $0.count == 5 }, "Board must be 6x5")
-
-        assignSpecialClues(on: &board, for: round, using: &rng)
-        return board
-    }
-
-    private static func assignSpecialClues<T: RandomNumberGenerator>(on board: inout [[Clue]], for round: RoundType, using rng: inout T) {
-        let totalClues = board.reduce(0) { $0 + $1.count }
-        guard totalClues >= 5 else { return }
-
-        var indices = Array(0..<totalClues)
-        indices.shuffle(using: &rng)
-
-        let dailyDoubleCount = round == .double ? 2 : 1
-        for _ in 0..<dailyDoubleCount {
-            if let index = indices.first {
-                indices.removeFirst()
-                setFlag(on: &board, at: index, keyPath: \Clue.isDailyDouble)
-            }
-        }
-
-        if let dooDooIndex = indices.first {
-            setFlag(on: &board, at: dooDooIndex, keyPath: \Clue.isDailyDooDoo)
+    private static func makeClues<T: RandomNumberGenerator>(for definition: CategoryDefinition, baseValues: [Int], using rng: inout T) -> [GameState.Clue] {
+        let candidates = Array(definition.clues.shuffled(using: &rng).prefix(baseValues.count))
+        return zip(baseValues, candidates).map { value, pair in
+            GameState.Clue(category: definition.title, value: value, question: pair.question, answer: pair.answer)
         }
     }
 
-    private static func setFlag(on board: inout [[Clue]], at flatIndex: Int, keyPath: WritableKeyPath<Clue, Bool>) {
-        let column = flatIndex / 5
-        let row = flatIndex % 5
-        guard board.indices.contains(column), board[column].indices.contains(row) else { return }
-        board[column][row][keyPath: keyPath] = true
+    private static func assignSpecialClues<T: RandomNumberGenerator>(round: GameState.Round, in categories: inout [GameState.Category], using rng: inout T) {
+        guard !categories.isEmpty else { return }
+
+        let flatIndices: [(cat: Int, clue: Int)] = categories.enumerated().flatMap { column, category in
+            category.clues.indices.map { (column, $0) }
+        }
+
+        func mark(_ indices: [(cat: Int, clue: Int)], as type: SpecialType) {
+            for index in indices {
+                switch type {
+                case .dailyDouble:
+                    categories[index.cat].clues[index.clue].isDailyDouble = true
+                case .dailyDooDoo:
+                    categories[index.cat].clues[index.clue].isDailyDooDoo = true
+                }
+            }
+        }
+
+        enum SpecialType { case dailyDouble, dailyDooDoo }
+
+        let dailyDoubleCount = round == .doubleJeopardy ? 2 : (round == .jeopardy ? 1 : 0)
+        let dailyDooDooCount = round == .doubleJeopardy ? 2 : (round == .jeopardy ? 1 : 0)
+
+        if dailyDoubleCount > 0 {
+            let indices = Array(flatIndices.shuffled(using: &rng).prefix(dailyDoubleCount))
+            mark(indices, as: .dailyDouble)
+        }
+
+        if dailyDooDooCount > 0 {
+            let remaining = flatIndices.filter { !categories[$0.cat].clues[$0.clue].isDailyDouble }
+            let indices = Array(remaining.shuffled(using: &rng).prefix(dailyDooDooCount))
+            mark(indices, as: .dailyDooDoo)
+        }
     }
 }
